@@ -60,15 +60,7 @@ public class Main extends JavaPlugin implements PluginMessageListener {
 		else
 			getServer().getPluginManager().registerEvents(new Listeners_old(), this);
 		
-		plugin_channel = resolvePluginChannel();
-		try {
-			registerPluginChannel(plugin_channel);
-		}
-		catch(Exception e) {
-			getLogger().warning("Could not register the plugin message channel \""+plugin_channel+"\" ("+e.getMessage()+"), using \""+LEGACY_PLUGIN_CHANNEL+"\" instead.");
-			plugin_channel = LEGACY_PLUGIN_CHANNEL;
-			registerPluginChannel(plugin_channel);
-		}
+		registerPluginChannel();
 		
 		if(getConfig().getBoolean("check_for_updates",true))
 			checkForUpdates();
@@ -173,27 +165,47 @@ public class Main extends JavaPlugin implements PluginMessageListener {
 		});
 	}
 
-	private void registerPluginChannel(String channel) {
-		getServer().getMessenger().registerOutgoingPluginChannel(this, channel);
-		getServer().getMessenger().registerIncomingPluginChannel(this, channel, this);
-	}
-	
-	private String resolvePluginChannel() {
+	// Tries the name that fits this server first and the other one after it, so a server
+	// that rejects both only loses the bungeecord channel instead of failing to enable
+	private void registerPluginChannel() {
+		boolean namespaced = supportsNamespacedChannels();
 		String configured = getConfig().getString("bungeecord.plugin_channel","");
+		String[] candidates;
 		if(configured!=null&&!configured.trim().isEmpty())
-			return configured.trim();
-		return supportsNamespacedChannels()?NAMESPACED_PLUGIN_CHANNEL:LEGACY_PLUGIN_CHANNEL;
+			candidates = new String[]{configured.trim(),(namespaced?NAMESPACED_PLUGIN_CHANNEL:LEGACY_PLUGIN_CHANNEL),(namespaced?LEGACY_PLUGIN_CHANNEL:NAMESPACED_PLUGIN_CHANNEL)};
+		else
+			candidates = new String[]{(namespaced?NAMESPACED_PLUGIN_CHANNEL:LEGACY_PLUGIN_CHANNEL),(namespaced?LEGACY_PLUGIN_CHANNEL:NAMESPACED_PLUGIN_CHANNEL)};
+		for(String candidate : candidates) {
+			try {
+				getServer().getMessenger().registerOutgoingPluginChannel(this, candidate);
+				getServer().getMessenger().registerIncomingPluginChannel(this, candidate, this);
+				plugin_channel=candidate;
+				return;
+			}
+			catch(Exception e) {
+				getLogger().warning("Could not register the plugin message channel \""+candidate+"\": "+e.getMessage());
+			}
+		}
+		plugin_channel=null;
+		getLogger().warning("No usable plugin message channel, the bungeecord channel will not work.");
 	}
-	
+
 	private static boolean supportsNamespacedChannels() {
+		return supportsNamespacedChannels(Bukkit.getBukkitVersion());
+	}
+
+	// 1.13 introduced namespaced plugin message channels and raised the channel name limit
+	// from 16 to 64 chars, so older servers only accept the short legacy name
+	static boolean supportsNamespacedChannels(String bukkit_version) {
 		try {
-			String[] v = Bukkit.getBukkitVersion().split("-")[0].split("\\.");
+			String[] v = bukkit_version.split("-")[0].split("\\.");
 			int major = Integer.parseInt(v[0]);
-			int minor = v.length>1?Integer.parseInt(v[1]):0;
+			int minor = (v.length>1?Integer.parseInt(v[1]):0);
 			return major>1||(major==1&&minor>=13);
 		}
 		catch(Exception e) {
-			return false;
+			// unreadable version string: assume a modern server and let the fallback sort it out
+			return true;
 		}
 	}
 	
