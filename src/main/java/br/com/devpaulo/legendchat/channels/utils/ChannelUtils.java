@@ -294,7 +294,7 @@ public class ChannelUtils {
 					} catch (IOException e1) {
 						e1.printStackTrace();
 					}
-					sender.sendPluginMessage(Bukkit.getPluginManager().getPlugin("Legendchat"), "Legendchat", b.toByteArray());
+					sender.sendPluginMessage(Bukkit.getPluginManager().getPlugin("Legendchat"), Main.getPluginMessageChannel(), b.toByteArray());
 				}
 			}
 		}

@@ -24,6 +24,7 @@ import br.com.devpaulo.legendchat.channels.types.PermanentChannel;
 import br.com.devpaulo.legendchat.commands.Commands;
 import br.com.devpaulo.legendchat.listeners.Listeners;
 import br.com.devpaulo.legendchat.listeners.Listeners_old;
+import br.com.devpaulo.legendchat.updater.UpdateChecker;
 import br.com.devpaulo.legendchat.updater.Updater;
 
 public class Main extends JavaPlugin implements PluginMessageListener {
@@ -35,7 +36,10 @@ public class Main extends JavaPlugin implements PluginMessageListener {
 	public static boolean block_chat = false;
 	public static boolean bungeeActive = false;
 	public static String language = "en";
-	public static String need_update = null;
+	public static volatile String need_update = null;
+	public static final String LEGACY_PLUGIN_CHANNEL = "Legendchat";
+	public static final String NAMESPACED_PLUGIN_CHANNEL = "legendchat:spigot";
+	private static String plugin_channel = LEGACY_PLUGIN_CHANNEL;
 	
 	@Override
     public void onEnable() {
@@ -56,31 +60,19 @@ public class Main extends JavaPlugin implements PluginMessageListener {
 		else
 			getServer().getPluginManager().registerEvents(new Listeners_old(), this);
 		
-		getServer().getMessenger().registerOutgoingPluginChannel(this, "legendchat:spigot");
-        getServer().getMessenger().registerIncomingPluginChannel(this, "legendchat:spigot", this);
-		
-		boolean check_update = true;
-		if(getConfig().contains("check_for_updates"))
-			if(!getConfig().getBoolean("check_for_updates"))
-				check_update=false;
-		if(check_update) {
-			getLogger().info("Checking for updates...");
-			try {
-				Updater vup = new Updater(getDescription().getVersion());
-				String vup_r = vup.CheckNewVersion();
-				if(vup_r==null)
-					getLogger().info("No updates found.");
-				else {
-					getLogger().info("New update avaible: V"+vup_r+"!");
-					getLogger().info("Download: http://dev.bukkit.org/bukkit-plugins/legendchat/");
-					need_update=vup_r;
-				}
-			}
-			catch(Exception e) {
-				getLogger().info("Error when checking for updates!");
-			}
+		plugin_channel = resolvePluginChannel();
+		try {
+			registerPluginChannel(plugin_channel);
+		}
+		catch(Exception e) {
+			getLogger().warning("Could not register the plugin message channel \""+plugin_channel+"\" ("+e.getMessage()+"), using \""+LEGACY_PLUGIN_CHANNEL+"\" instead.");
+			plugin_channel = LEGACY_PLUGIN_CHANNEL;
+			registerPluginChannel(plugin_channel);
 		}
 		
+		if(getConfig().getBoolean("check_for_updates",true))
+			checkForUpdates();
+
 		File file = new File(getDataFolder(),"config.yml");
 		if(!file.exists()) {
 			try {
@@ -159,6 +151,56 @@ public class Main extends JavaPlugin implements PluginMessageListener {
 			Legendchat.getPlayerManager().setPlayerFocusedChannel(p, Legendchat.getDefaultChannel(), false);
 	}
 	
+	private void checkForUpdates() {
+		final String current = getDescription().getVersion();
+		getServer().getScheduler().runTaskAsynchronously(this, new Runnable() {
+			public void run() {
+				getLogger().info("Checking for updates...");
+				try {
+					String found = new UpdateChecker(current).getNewVersion();
+					if(found==null)
+						getLogger().info("No updates found.");
+					else {
+						getLogger().info("New update available: V"+found+"!");
+						getLogger().info("Download: "+UpdateChecker.getReleasesUrl());
+						need_update=found;
+					}
+				}
+				catch(Exception e) {
+					getLogger().info("Error when checking for updates!");
+				}
+			}
+		});
+	}
+
+	private void registerPluginChannel(String channel) {
+		getServer().getMessenger().registerOutgoingPluginChannel(this, channel);
+		getServer().getMessenger().registerIncomingPluginChannel(this, channel, this);
+	}
+	
+	private String resolvePluginChannel() {
+		String configured = getConfig().getString("bungeecord.plugin_channel","");
+		if(configured!=null&&!configured.trim().isEmpty())
+			return configured.trim();
+		return supportsNamespacedChannels()?NAMESPACED_PLUGIN_CHANNEL:LEGACY_PLUGIN_CHANNEL;
+	}
+	
+	private static boolean supportsNamespacedChannels() {
+		try {
+			String[] v = Bukkit.getBukkitVersion().split("-")[0].split("\\.");
+			int major = Integer.parseInt(v[0]);
+			int minor = v.length>1?Integer.parseInt(v[1]):0;
+			return major>1||(major==1&&minor>=13);
+		}
+		catch(Exception e) {
+			return false;
+		}
+	}
+	
+	public static String getPluginMessageChannel() {
+		return plugin_channel;
+	}
+	
 	private boolean setupPermissions() {
         if(getServer().getPluginManager().getPlugin("Vault")==null)
             return false;
@@ -198,7 +240,7 @@ public class Main extends JavaPlugin implements PluginMessageListener {
 	@Override
     public void onPluginMessageReceived(String channel, Player player, byte[] message) {
 		if(Legendchat.isBungeecordActive()) {
-			if(!channel.equals("Legendchat"))
+			if(!channel.equals(plugin_channel))
 				return;
 			DataInputStream in = new DataInputStream(new ByteArrayInputStream(message));
 			String raw_tags = "";

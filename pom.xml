@@ -6,14 +6,29 @@
 
     <groupId>br.com.devpaulo.legendchat</groupId>
     <artifactId>Legendchat</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.1.7</version>
 
     <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <!-- Java 8 bytecode: required by 1.12 servers, still loads on modern ones -->
+        <maven.compiler.release>8</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+    <build>
+        <finalName>Legendchat</finalName>
+        <!-- plugin.yml and the default configurations live in the project root -->
+        <resources>
+            <resource>
+                <directory>${project.basedir}</directory>
+                <includes>
+                    <include>plugin.yml</include>
+                    <include>config_template.yml</include>
+                    <include>temporary_channels.yml</include>
+                    <include>language/*.yml</include>
+                </includes>
+            </resource>
+        </resources>
+    </build>
 
     <repositories>
         <!-- This adds the Spigot Maven repository to the build -->
@@ -29,10 +44,12 @@
 
     <dependencies>
         <!--This adds the Spigot API artifact to the build -->
+        <!-- Oldest supported version: building against it keeps the plugin usable
+             from 1.12 up to the current releases -->
         <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
-            <version>1.19.3-R0.1-SNAPSHOT</version>
+            <version>1.12.2-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -40,6 +57,13 @@
             <artifactId>VaultAPI</artifactId>
             <version>1.7</version>
             <scope>provided</scope>
+            <exclusions>
+                <!-- VaultAPI drags in bukkit 1.13.1, which would mask 1.12 incompatibilities -->
+                <exclusion>
+                    <groupId>org.bukkit</groupId>
+                    <artifactId>bukkit</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
-</project>
+</project>

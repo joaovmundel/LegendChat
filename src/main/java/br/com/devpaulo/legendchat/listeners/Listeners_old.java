@@ -2,9 +2,7 @@ package br.com.devpaulo.legendchat.listeners;
 
 import java.util.HashMap;
 
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -14,26 +12,16 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
-import br.com.devpaulo.legendchat.Main;
 import br.com.devpaulo.legendchat.api.Legendchat;
 import br.com.devpaulo.legendchat.channels.types.Channel;
+import br.com.devpaulo.legendchat.updater.UpdateChecker;
 
 @SuppressWarnings("deprecation")
 public class Listeners_old implements Listener {
 	@EventHandler(priority = EventPriority.MONITOR)
 	private void onJoin(PlayerJoinEvent e) {
 		Legendchat.getPlayerManager().setPlayerFocusedChannel(e.getPlayer(), Legendchat.getDefaultChannel(), false);
-		if(hasAnyPermission(e.getPlayer())) {
-    		final Player p = e.getPlayer();
-    		Bukkit.getServer().getScheduler().runTaskLater(Legendchat.getPlugin(), new Runnable() {
-    			public void run() {
-    				if(Main.need_update!=null) {
-    					p.sendMessage(ChatColor.GOLD+"[Legendchat] "+ChatColor.WHITE+"New update avaible: "+ChatColor.AQUA+"V"+Main.need_update+"!");
-    					p.sendMessage(ChatColor.GOLD+"Download: "+ChatColor.WHITE+"http://dev.bukkit.org/bukkit-plugins/legendchat/");
-    				}
-    			}
-    		}, 60L);
-    	}
+		UpdateChecker.notifyIfOutdated(e.getPlayer());
 	}
 	
 	@EventHandler
@@ -168,23 +156,4 @@ public class Listeners_old implements Listener {
 		}
 	}
 	
-	private boolean hasAnyPermission(Player sender) {
-		if(sender.hasPermission("legendchat.admin.channel"))
-			return true;
-		if(sender.hasPermission("legendchat.admin.spy"))
-			return true;
-		if(sender.hasPermission("legendchat.admin.hide"))
-			return true;
-		if(sender.hasPermission("legendchat.admin.mute"))
-			return true;
-		if(sender.hasPermission("legendchat.admin.unmute"))
-			return true;
-		if(sender.hasPermission("legendchat.admin.muteall"))
-			return true;
-		if(sender.hasPermission("legendchat.admin.unmuteall"))
-			return true;
-		if(sender.hasPermission("legendchat.admin.reload"))
-			return true;
-		return false;
-	}
 }

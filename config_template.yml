@@ -3,6 +3,9 @@ default_channel: local
 bungeecord:
   use: false
   channel: bungeecord
+  # Plugin message channel used to talk to the proxy. Leave it empty to pick it
+  # automatically: 'Legendchat' on 1.12 and older, 'legendchat:spigot' on 1.13+
+  plugin_channel: ''
 check_for_updates: true
 log_to_bukkit: false
 log_to_file:
